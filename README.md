@@ -1,4 +1,4 @@
 # innovation_challenge
 Repository for BMCC innovation challenge, team AGI
 
-[WebApp](marcushcrawford.pythonanywhere.com)
+[WebApp](http://www.marcushcrawford.pythonanywhere.com)
