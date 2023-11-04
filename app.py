@@ -6,26 +6,31 @@ from plotly.graph_objs import Scattergeo, Layout, Figure
 
 
 
-
+# csvs and data frame creation
 link = "cuny_attendance.csv"
 link_location = "college_location.csv"
+link_ret = "cuny_retention.csv"
+df_ret = pd.read_csv(link_ret)
+df_ret = df_ret.dropna()
 df_location = pd.read_csv(link_location)
-
+mask = df_ret['Record Type Description'] == '1 Year Retention'
+filtered_df_ret = df_ret[mask]
+filtered_df_ret = filtered_df_ret.sort_values(by='Fall Term', ascending=True)
 df = pd.read_csv(link, index_col=0)
-
 df.dropna(inplace=True)
 df = df[df["Enrollment Type Description"] == 'Total']
-
 sorted_fall_terms = sorted(df['Fall Term'].unique())
-
 merged_df = pd.merge(df, df_location, on='College Name', how='inner')
 
-# Create the Dash app
+
+
+# Dash declaration, bootstrap import
 app = Dash(__name__, suppress_callback_exceptions=True, external_stylesheets=[dbc.themes.FLATLY, '/assets/styles.css'])
 
+
+# app layout
 app.layout = html.Div([
     html.H1("College Data", style={'text-align': 'center'}),
-    
     dbc.Card(
         dbc.CardBody([
             html.H3("Select a year to see the number of students enrolled:"),
@@ -38,26 +43,41 @@ app.layout = html.Div([
             ),
             
             dcc.Graph(id='college-histogram'),
-
-            
-        ])
+        ]),
+    ),
+    dbc.Card(
+        dbc.CardBody([
+            html.H3("Select a college to see the retention rate:"),
+            dcc.Dropdown(
+                id='college-dropdown',
+                options=[{'label': college, 'value': college} for college in filtered_df_ret['College'].unique()],
+                value=filtered_df_ret['College'].unique()[0],
+                style={'color': 'black', 'background-color': 'white', 'margin': '30px'}
+            ),
+            dcc.Graph(id='college-line-chart'),
+        ]),
+    ),
+# kepler map
+    html.Iframe(
+        src="https://kepler.gl/demo/map?mapUrl=https://dl.dropboxusercontent.com/scl/fi/lqhmzzw3ydnxril95tvs8/keplergl_ve6gzsq.json?rlkey=rapifpf57wsenpe3648m5uxsc&dl=0",
+        width="100%",
+        height="500px",  # Adjust the height as needed
+        style={"border": "none"}  # You can customize the iframe styles as needed
     ),
     
-    # 3D Scatter Plot added as a dcc.Graph component
-    dcc.Graph(id='scatter-3d'),
-
 ])
 
 # Define a callback to update the 3D Scatter Plot and histogram
 @app.callback(
-    Output('scatter-3d', 'figure'),
     Output('college-histogram', 'figure'),
-    Input('fall-term-dropdown', 'value')
+    Output('college-line-chart', 'figure'),
+    Input('fall-term-dropdown', 'value'),
+    Input('college-dropdown', 'value')
 )
-def update_figures(selected_year):
+def update_figures(selected_year, selected_college):
     filtered_df = merged_df[merged_df['Fall Term'] == selected_year]
 
-    # Create the histogram
+    # plotly histogram
     fig_histogram = px.histogram(
         filtered_df, x='College Name', y='Head Count', title=f"College Data for {selected_year}", template='plotly_dark',
         color_discrete_sequence=['#98FB98']
@@ -66,22 +86,17 @@ def update_figures(selected_year):
     fig_histogram.update_yaxes(title_text="Head Count")
 
     # Create the 3D Scatter Plot
-    fig_3d = Figure(data=[Scattergeo(
-        lon=filtered_df['Longitude'],
-        lat=filtered_df['Latitude'],
-        mode='markers',
-        
-        marker=dict(
-            size=filtered_df['Head Count'] / 500,  # Adjust the size for visibility
-            color=filtered_df['Head Count'],
-            colorscale='Viridis',
-            colorbar=dict(title='Head Count'),
-        )
-    )])
-    fig_3d.update_geos(projection_scale=10)
-    fig_3d.update_geos(fitbounds="locations")
+    
+    # Create the line chart for the selected college
+    filtered_df_college = filtered_df_ret[filtered_df_ret['College'] == selected_college]
+    fig_line_chart = px.line(
+        filtered_df_college, x='Fall Term', y='Percentage', title=f"Retention Data for {selected_college}",
+        labels={'Fall Term': 'Fall Term', 'Percentage': 'Percentage'},
+        template='plotly_dark'
+    )
 
-    return fig_3d, fig_histogram  # Return 3D Scatter Plot and histogram
+    return fig_histogram, fig_line_chart
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+
