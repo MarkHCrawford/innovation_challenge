@@ -1,0 +1,16 @@
+/* styles.css */
+body {
+    background-color: black;
+    color: white;
+}
+
+.card {
+    background-color: #333;
+    color: white;
+}
+
+.dropdown-item {
+    background-color: white;
+    color: black;
+
+}
